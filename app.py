@@ -2,10 +2,14 @@ from flask import Flask, jsonify, request
 from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from pymongo import MongoClient
+from flask_cors import CORS
 import json
 
 # Flask = class, an intance of WSGI application & __name__ is module so that it can be used to access the static files & templates
 app = Flask(__name__)
+CORS(app)
+cors = CORS(app, resources={r"/*": {"origins": "*"}},
+            methods=["GET", "POST", "PUT", "DELETE"])
 
 # MONGODB CLIENT INITIALIZATION
 client = MongoClient(
@@ -75,7 +79,7 @@ def get_single_data():
         #         break
         get_single_doc = {"_id": str(
             data["_id"]), "title": data["title"], "description": data["description"], "url": data["url"], "like": data["like"], "created_at": data["created_at"]}
-        return jsonify({"status": 200, "message": "Trying to update data",  "data": get_single_doc}), 200
+        return jsonify({"status": 200, "message": "Get detail successfully",  "data": get_single_doc}), 200
     except Exception as err:
         error_message = str(err)
         return jsonify({"status": 400, "message": error_message}), 500
