@@ -1,9 +1,20 @@
 from flask import Flask, jsonify, request
+from dotenv import load_dotenv
+from form import JoinSchema
+from marshmallow import ValidationError
 from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from flask_cors import CORS
+from passlib.hash import sha256_crypt
 import json
+import os
+
+# GET ENV DATA
+load_dotenv()
+DB_URI = os.getenv("DB_URI")
+ADMIN_KEY = os.getenv("ADMIN_KEY")
+
 
 # Flask = class, an intance of WSGI application & __name__ is module so that it can be used to access the static files & templates
 app = Flask(__name__)
@@ -12,11 +23,11 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}},
             methods=["GET", "POST", "PUT", "DELETE"])
 
 # MONGODB CLIENT INITIALIZATION
-client = MongoClient(
-    "mongodb+srv://flask_db:flask_db@cluster0.lvals.mongodb.net/?retryWrites=true&w=majority")
+client = MongoClient(DB_URI)
 
 db = client.new_flask_db
 collection = db.flask_db
+join_db = db.join_db
 
 # root route
 
@@ -153,6 +164,31 @@ def handle_like():
             query, {"$set": {"like": int(updateable_data["like"]) + 1}})
         return jsonify({"status": 200, "message": "Add like successfully"})
     except Exception as e:
+        error_message = str(e)
+        return jsonify({"error": error_message}), 500
+
+# JOIN DATA CREATE
+
+
+@app.route("/join", methods=["GET", "POST"])
+def join():
+    try:
+        # data = json.loads(request.form)
+        data = request.json
+        join_data = JoinSchema().load(data)
+        # SET CREATED AT
+        now = datetime.now(timezone.utc)
+        join_data['create_at'] = now.isoformat()
+        password = sha256_crypt.encrypt(join_data["password"])
+        # print(sha256_crypt.verify("password", password))
+        join_data["password"] = password
+
+        if join_db.find_one({"email": join_data["email"]}):
+            jsonify({"error": "This mail already exist"}), 409
+        else:
+            result = join_db.insert_one(join_data)
+            return jsonify({"status": 200, "message": "User added successfully"})
+    except ValidationError as e:
         error_message = str(e)
         return jsonify({"error": error_message}), 500
 
